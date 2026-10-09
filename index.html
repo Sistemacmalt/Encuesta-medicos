@@ -81,13 +81,26 @@ function csv(d){const rows=[['campo','valor']];Object.entries(d.a).forEach(e=>ro
 return '\ufeff'+rows.map(r=>r.map(x=>'"'+String(x).replace(/"/g,'""')+'"').join(',')).join('\n')}
 async function dlcsv(rowsText,name){try{const d=await claude.use('downloads');if(!d)throw 0;await d.save({filename:name,data:rowsText})}catch(e){const b=new Blob([rowsText],{type:'text/csv'});const u=URL.createObjectURL(b);const a=document.createElement('a');a.href=u;a.download=name;a.click()}}
 $('dl').onclick=()=>dlcsv(csv(collect()),'mis_respuestas_encuesta.csv');
+// ===== CONEXIÓN A GOOGLE SHEETS =====
+// Pega aquí la URL de tu aplicación web de Apps Script (termina en /exec)
+const SHEETS_URL='https://script.google.com/macros/s/AKfycbynbMY8RwYe7hx_cqbJiOKFr3yeusHIgn9HsewqTypRx5klnBoi0r1DjwZw0gDQVVay/exec';
+function aplanar(d){const r={fecha:new Date().toLocaleString('es-MX')};
+ ['nombre','esp','vinculo','antig','frec'].forEach(k=>r[k]=d.g[k]);
+ NAMES.forEach(n=>r[n]=d.a[n]);
+ S.forEach(s=>r['coment_'+s[0]]=d.c[s[0]]);
+ r.mejor=d.g.mejor;r.peor=d.g.peor;r.prioridades=(d.g.prioridades||[]).join(' | ');r.cambios=d.g.cambios;r.contacto=d.g.contacto;
+ return r}
 $('send').onclick=async()=>{
  const d=collect();const miss=NAMES.filter(n=>!d.a[n]).length;
  if(miss&&!confirm('Faltan '+miss+' reactivos por responder. ¿Enviar de todos modos?'))return;
- const o=$('out');
- try{const db=await claude.use('db');const u=await claude.use('user');if(!db||!u)throw 0;const id=await u.id();
-  await db.doc('responses/'+id).set(d);o.innerHTML='<div class="msg"><b>¡Gracias!</b> Su encuesta fue enviada correctamente.</div>';$('send').disabled=true;
- }catch(e){o.innerHTML='<div class="msg">No fue posible enviar en línea (inicie sesión o solicite acceso de colaborador). Puede descargar su copia en CSV y enviarla a la dirección.</div>'}
+ const o=$('out');const btn=$('send');btn.disabled=true;btn.textContent='Enviando…';
+ try{
+  if(SHEETS_URL.indexOf('PEGA_AQUI')===0)throw new Error('URL sin configurar');
+  await fetch(SHEETS_URL,{method:'POST',mode:'no-cors',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify(aplanar(d))});
+  o.innerHTML='<div class="msg"><b>¡Gracias!</b> Su encuesta fue enviada correctamente.</div>';btn.textContent='Encuesta enviada';
+ }catch(e){
+  btn.disabled=false;btn.textContent='Enviar encuesta';
+  o.innerHTML='<div class="msg">No fue posible enviar en línea. Revise su conexión e inténtelo de nuevo, o descargue su copia en CSV y envíela a la dirección.</div>'}
  o.scrollIntoView({behavior:'smooth'})};
 // Resultados (solo propietario)
 (async()=>{try{const u=await claude.use('user');if(!u||!await u.isOwner())return;
